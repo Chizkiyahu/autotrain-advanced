@@ -4,6 +4,7 @@ import sys
 
 import psutil
 import requests
+from typing import Any, Dict
 
 from autotrain import config, logger
 
@@ -14,6 +15,17 @@ def graceful_exit(signum, frame):
 
 
 signal.signal(signal.SIGTERM, graceful_exit)
+
+# ---------------------------------------------------------------------------
+# Token verification cache
+# ---------------------------------------------------------------------------
+
+# cache the token verification results to avoid repeated API calls which may
+# trigger rate limiting on the Hugging Face Hub when running the application
+# locally. the cache stores the `user_info` dictionary returned by the
+# `token_verification` function keyed by the token value.
+
+TOKEN_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
 def get_running_jobs(db):
@@ -111,6 +123,10 @@ def token_verification(token):
     Raises:
         Exception: If the Hugging Face Hub is unreachable or the token is invalid.
     """
+    # return cached info if token has already been verified
+    if token in TOKEN_CACHE:
+        return TOKEN_CACHE[token]
+
     if token.startswith("hf_oauth"):
         _api_url = config.HF_API + "/oauth/userinfo"
         _err_msg = "/oauth/userinfo"
@@ -149,6 +165,10 @@ def token_verification(token):
         user_info["id"] = resp["id"]
         user_info["name"] = resp["name"]
         user_info["orgs"] = [resp["orgs"][k]["name"] for k in range(len(resp["orgs"]))]
+
+    # cache the verification result to reduce future API calls
+    TOKEN_CACHE[token] = user_info
+
     return user_info
 
 
