@@ -42,6 +42,31 @@ ui_router = APIRouter()
 templates_path = os.path.join(BASE_DIR, "templates")
 templates = Jinja2Templates(directory=templates_path)
 
+
+def _convert_value(value):
+    """Convert string values from the UI form to proper Python types."""
+    if isinstance(value, str):
+        lower = value.lower()
+        if lower == "true":
+            return True
+        if lower == "false":
+            return False
+        if lower in ("none", "null"):
+            return None
+        try:
+            if "." in value:
+                return float(value)
+            return int(value)
+        except ValueError:
+            return value
+    return value
+
+
+def _convert_params(params: dict) -> dict:
+    """Recursively convert parameter values to their proper types."""
+    return {k: _convert_value(v) for k, v in params.items()}
+
+
 UI_PARAMS = {
     "mixed_precision": {
         "type": "dropdown",
@@ -552,10 +577,11 @@ async def handle_form(
         )
 
     params = json.loads(params)
-    # convert "null" to None
+    # convert "null" strings and other string values to correct python types
     for key in params:
         if params[key] == "null":
             params[key] = None
+    params = _convert_params(params)
     column_mapping = json.loads(column_mapping)
 
     training_files = [f.file for f in data_files_training if f.filename != ""] if data_files_training else []

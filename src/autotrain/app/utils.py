@@ -1,10 +1,10 @@
 import os
 import signal
 import sys
+from typing import Any, Dict  # import order enforced by isort
 
 import psutil
 import requests
-from typing import Any, Dict
 
 from autotrain import config, logger
 

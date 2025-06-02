@@ -25,6 +25,28 @@ from autotrain.trainers.token_classification.params import TokenClassificationPa
 from autotrain.trainers.vlm.params import VLMTrainingParams
 
 
+def _convert_value(value):
+    if isinstance(value, str):
+        lower = value.lower()
+        if lower == "true":
+            return True
+        if lower == "false":
+            return False
+        if lower in ("none", "null"):
+            return None
+        try:
+            if "." in value:
+                return float(value)
+            return int(value)
+        except ValueError:
+            return value
+    return value
+
+
+def _convert_params(params: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: _convert_value(v) for k, v in params.items()}
+
+
 FIELDS_TO_EXCLUDE = HIDDEN_PARAMS + ["push_to_hub"]
 
 
@@ -638,7 +660,7 @@ async def api_create_project(project: APICreateProjectModel, token: bool = Depen
         - It updates the parameters with the provided ones and creates an AppParams instance.
         - The function then creates an AutoTrainProject instance and initiates the project creation process.
     """
-    provided_params = project.params.model_dump()
+    provided_params = _convert_params(project.params.model_dump())
     if project.hardware == "local":
         hardware = "local-ui"  # local-ui has wait=False
     else:
@@ -649,21 +671,21 @@ async def api_create_project(project: APICreateProjectModel, token: bool = Depen
 
     task = project.task
     if task.startswith("llm"):
-        params = PARAMS["llm"]
+        params = PARAMS["llm"].copy()
         trainer = task.split(":")[1]
         params.update({"trainer": trainer})
     elif task.startswith("st:"):
-        params = PARAMS["st"]
+        params = PARAMS["st"].copy()
         trainer = task.split(":")[1]
         params.update({"trainer": trainer})
     elif task.startswith("vlm:"):
-        params = PARAMS["vlm"]
+        params = PARAMS["vlm"].copy()
         trainer = task.split(":")[1]
         params.update({"trainer": trainer})
     elif task.startswith("tabular"):
-        params = PARAMS["tabular"]
+        params = PARAMS["tabular"].copy()
     else:
-        params = PARAMS[task]
+        params = PARAMS[task].copy()
 
     params.update(provided_params)
 
